@@ -1,0 +1,58 @@
+NAME
+    Data::FormValidator::Filters::Image - Filter that allows you to shrink
+    incoming image uploads using Data::FormValidator
+
+SYNOPSIS
+        use Data::FormValidator::Filters::Image qw( image_filter );
+
+        # Build a Data::FormValidator Profile:
+        my $my_profile = {
+            required => qw( uploaded_image ),
+            field_filters => {
+                uploaded_image => image_filter(max_width => 800, max_height => 600),
+            },
+        };
+
+        # Be sure to use a CGI.pm object as the form input
+        # when using this filter
+        my $q = new CGI;
+        my $dfv = Data::FormValidator->check($q,$my_profile);
+
+DESCRIPTION
+    Many users when uploading image files never bother to shrink them down
+    to a reasonable size. Instead of declining the upload because it is too
+    large, this module will shrink the image down to a reasonable size
+    during the form validation stage.
+
+    The filter will try to fail gracefully by leaving the upload as is if
+    the image resize operation fails.
+
+FILTERS
+  image_filter( max_width => $width, max_height => $height )
+    This will create a filter that will reduce the size of an image that is
+    being uploaded so that it is bounded by the width and height provided.
+    The image will be scaled in a way that will not distort or stretch the
+    image.
+
+     example:
+
+     - upload an image that is 800 x 600
+     - specify a max width of 100 and max height of 100
+
+     The resulting image will be 100 x 75, since that is the
+     largest scaled image we can create that is still within
+     the bounds we specified.
+
+SEE ALSO
+    Data::FormValidator
+
+AUTHOR
+    Cees Hek <ceeshek@gmail.com>
+
+COPYRIGHT
+    Copyright (c) 2005 SiteSuite Corporation - http://sitesuite.com.au/ All
+    rights reserved.
+
+    This library is free software. You can modify and or distribute it under
+    the same terms as Perl itself.
+
