@@ -45,7 +45,7 @@ use vars qw( $VERSION @ISA @EXPORT @EXPORT_OK );
 BEGIN {
     require Exporter;
 
-    $VERSION = 0.10;
+    $VERSION = 0.20;
 
     @ISA = qw( Exporter );
 
@@ -90,23 +90,23 @@ sub __shrink_image {
     my $max_width  = shift;
     my $max_height = shift;
     my @the_rest   = @_;
-    my $result;
 
     return $fh unless $fh && ref $fh eq 'Fh';
     my $filename = $fh->asString;
+    $filename =~ s/^.*[\/\\]//; # strip off any path information that IE puts in the filename
     binmode $fh;
 
-    my $image;
+    my ($result, $image);
     eval {
         $image = Image::Magick->new;
-        $result = $image->Read( file => $fh );
+        $result = $image->Read( file => \*$fh );
     };
     if ($@) {
-        #warn "Uploaded file was not an image";
+        #warn "Uploaded file was not an image:  $@";
         seek( $fh, 0, 0 );
         return $fh;
     }
-    if ("$result") {
+    if ("$result") { # quotes are there as per the Image::Magick examples
         #warn "$result";
         seek( $fh, 0, 0 );
         return $fh;
@@ -130,14 +130,14 @@ sub __shrink_image {
     }
 
     $result = $image->Resize( width => $nw, height => $nh, @the_rest );
-    if ("$result") {
+    if ("$result") { # quotes are there as per the Image::Magick examples
         #warn "$result";
         seek( $fh, 0, 0 );
         return $fh;
     }
 
     #########################
-    # Create a file handle object to simpulate a CGI.pm upload
+    # Create a file handle object to simulate a CGI.pm upload
     #  Pulled directly from CGI.pm by Lincoln Stein
     my $tmp_filename;
     my $seqno = unpack( "%16C*", join( '', localtime, values %ENV ) );
@@ -157,7 +157,7 @@ sub __shrink_image {
     #########################
 
     $image->Write( file => $newfh, filename => $filename );
-    if ("$result") {
+    if ("$result") { # quotes are there as per the Image::Magick examples
         #warn "$result";
         seek( $fh, 0, 0 );
         return $fh;

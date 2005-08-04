@@ -1,6 +1,9 @@
 
 use lib './t';
 
+use strict;
+use warnings;
+
 use CGI;
 use Config;
 use File::Spec;
@@ -21,7 +24,7 @@ sub test {
     print( $true ? "ok $num $msg\n" : "not ok $num $msg\n" );
 }
 
-print "1..32\n";
+print "1..37\n";
 
 unless ( $Config{d_fork} ) {
     test( $_, 1, "# skip fork not available on this platform" ) for 1 .. 32;
@@ -65,6 +68,7 @@ my $req = &HTTP::Request::Common::POST(
         image4 => ["t/image.jpg"],
         image5 => ["t/image.jpg"],
         image6 => ["t/empty.jpg"],
+        image7 => ["t/image.jpg", 'C:/Program Files/dumb/filename/IE/passes.jpg'],
         file   => ["t/file.txt"],
     ]
 );
@@ -83,7 +87,7 @@ if ( open( CHILD, "|-" ) ) {    # cparent
 my $q = CGI->new;
 
 my $profile = {
-    required => [qw(image1 image2 image3 image4 image5 image6 file name)],
+    required => [qw(image1 image2 image3 image4 image5 image6 image7 file name)],
     field_filters => {
         image1 => Data::FormValidator::Filters::Image::image_filter(
             max_width  => 75,
@@ -104,6 +108,10 @@ my $profile = {
             max_width  => 50,
             max_height => 50,
         ),
+        image7 => Data::FormValidator::Filters::Image::image_filter(
+            max_width  => 50,
+            max_height => 50,
+        ),
         file => Data::FormValidator::Filters::Image::image_filter(
             max_width  => 50,
             max_height => 50,
@@ -121,197 +129,267 @@ test( 3, $results, "Data::FormValidator check" );
 
 my $valid = $results->valid;
 
-# Test Image #1
-#
-#            max_width  => 75,
-#            max_height => 50,
-#
-my $fh = $valid->{image1};
+{
+    # Test Image #1
+    #
+    #            max_width  => 75,
+    #            max_height => 50,
+    #
+    my $fh = $valid->{image1};
 
-test( 4, ref $fh eq 'Fh', "valid Fh object" );
+    test( 4, ref $fh eq 'Fh', "valid Fh object" );
 
-my $filename = File::Spec->catdir( 't', 'sh_' . $fh->asString );
-unlink $filename if -e $filename;
-if ($fh) {
-    open( my $newfh, '>', $filename )
-        || die "Can't open temp image filename $filename";
-    my $buffer;
-    while ( sysread $fh, $buffer, 4096 ) {
-        print $newfh $buffer;
+    my $filename = $fh->asString;
+    $filename =~ s/^.*[\/\\]//; # strip off any path information that IE puts in the filename
+    $filename = File::Spec->catdir( 't', 'sh_' . $filename );
+    unlink $filename if -e $filename;
+    if ($fh) {
+        open( my $newfh, '>', $filename )
+            || die "Can't open temp image filename $filename";
+        my $buffer;
+        while ( sysread $fh, $buffer, 4096 ) {
+            print $newfh $buffer;
+        }
+        close $newfh;
     }
-    close $newfh;
-}
 
-test( 5, -e $filename, "Temporary image saved" );
+    test( 5, -e $filename, "Temporary image saved" );
 
-if ($image_info_not_available) {
-    test( $_, 1, "# skip Image::Info required for these test" ) for 6 .. 8;
-}
-else {
-    my $info = Image::Info::image_info($filename);
-    test( 6, !$info->{error}, "Image::Info results" );
-    my ( $w, $h ) = Image::Info::dim($info);
-    test( 7, $info->{width} == 37, "Width is 37" );
-    test( 8, $info->{height} == 50, "Height is 50" );
-}
-
-# Test Image #2
-#
-#            max_width  => 50,
-#            max_height => 75,
-#
-$fh = $valid->{image2};
-
-test( 9, ref $fh eq 'Fh', "valid Fh object" );
-
-$filename = File::Spec->catdir( 't', 'sh_' . $fh->asString );
-unlink $filename if -e $filename;
-if ($fh) {
-    open( my $newfh, '>', $filename )
-        || die "Can't open temp image filename $filename";
-    my $buffer;
-    while ( sysread $fh, $buffer, 4096 ) {
-        print $newfh $buffer;
+    if ($image_info_not_available) {
+        test( $_, 1, "# skip Image::Info required for these test" ) for 6 .. 8;
     }
-    close $newfh;
-}
-
-test( 10, -e $filename, "Temporary image saved" );
-
-if ($image_info_not_available) {
-    test( $_, 1, "# skip Image::Info required for these test" ) for 11 .. 13;
-}
-else {
-    my $info = Image::Info::image_info($filename);
-    test( 11, !$info->{error}, "Image::Info results" );
-    my ( $w, $h ) = Image::Info::dim($info);
-    test( 12, $info->{width} == 50, "Width is 50" );
-    test( 13, $info->{height} == 66, "Height is 66" );
-}
-
-# Test Image #3
-#
-#            max_width  => 50,
-#
-$fh = $valid->{image3};
-
-test( 14, ref $fh eq 'Fh', "valid Fh object" );
-
-$filename = File::Spec->catdir( 't', 'sh_' . $fh->asString );
-unlink $filename if -e $filename;
-if ($fh) {
-    open( my $newfh, '>', $filename )
-        || die "Can't open temp image filename $filename";
-    my $buffer;
-    while ( sysread $fh, $buffer, 4096 ) {
-        print $newfh $buffer;
+    else {
+        my $info = Image::Info::image_info($filename);
+        test( 6, !$info->{error}, "Image::Info results" );
+        my ( $w, $h ) = Image::Info::dim($info);
+        test( 7, $info->{width} == 37, "Width is 37" );
+        test( 8, $info->{height} == 50, "Height is 50" );
     }
-    close $newfh;
+    unlink $filename if -e $filename;
 }
 
-test( 15, -e $filename, "Temporary image saved" );
+{
+    # Test Image #2
+    #
+    #            max_width  => 50,
+    #            max_height => 75,
+    #
+    my $fh = $valid->{image2};
 
-if ($image_info_not_available) {
-    test( $_, 1, "# skip Image::Info required for these test" ) for 16 .. 18;
-}
-else {
-    my $info = Image::Info::image_info($filename);
-    test( 16, !$info->{error}, "Image::Info results" );
-    my ( $w, $h ) = Image::Info::dim($info);
-    test( 17, $info->{width} == 50, "Width is 50" );
-    test( 18, $info->{height} == 66, "Height is 66" );
-}
+    test( 9, ref $fh eq 'Fh', "valid Fh object" );
 
-# Test Image #4
-#
-#            max_height  => 50,
-#
-$fh = $valid->{image4};
-
-test( 19, ref $fh eq 'Fh', "valid Fh object" );
-
-$filename = File::Spec->catdir( 't', 'sh_' . $fh->asString );
-unlink $filename if -e $filename;
-if ($fh) {
-    open( my $newfh, '>', $filename )
-        || die "Can't open temp image filename $filename";
-    my $buffer;
-    while ( sysread $fh, $buffer, 4096 ) {
-        print $newfh $buffer;
+    my $filename = $fh->asString;
+    $filename =~ s/^.*[\/\\]//; # strip off any path information that IE puts in the filename
+    $filename = File::Spec->catdir( 't', 'sh_' . $filename );
+    unlink $filename if -e $filename;
+    if ($fh) {
+        open( my $newfh, '>', $filename )
+            || die "Can't open temp image filename $filename";
+        my $buffer;
+        while ( sysread $fh, $buffer, 4096 ) {
+            print $newfh $buffer;
+        }
+        close $newfh;
     }
-    close $newfh;
-}
 
-test( 20, -e $filename, "Temporary image saved" );
+    test( 10, -e $filename, "Temporary image saved" );
 
-if ($image_info_not_available) {
-    test( $_, 1, "# skip Image::Info required for these test" ) for 21 .. 23;
-}
-else {
-    my $info = Image::Info::image_info($filename);
-    test( 21, !$info->{error}, "Image::Info results" );
-    my ( $w, $h ) = Image::Info::dim($info);
-    test( 22, $info->{width} == 37, "Width is 37" );
-    test( 23, $info->{height} == 50, "Height is 50" );
-}
-
-# Test Image #5
-#
-#
-$fh = $valid->{image5};
-
-test( 24, ref $fh eq 'Fh', "valid Fh object" );
-
-$filename = File::Spec->catdir( 't', 'sh_' . $fh->asString );
-unlink $filename if -e $filename;
-if ($fh) {
-    open( my $newfh, '>', $filename )
-        || die "Can't open temp image filename $filename";
-    my $buffer;
-    while ( sysread $fh, $buffer, 4096 ) {
-        print $newfh $buffer;
+    if ($image_info_not_available) {
+        test( $_, 1, "# skip Image::Info required for these test" ) for 11 .. 13;
     }
-    close $newfh;
+    else {
+        my $info = Image::Info::image_info($filename);
+        test( 11, !$info->{error}, "Image::Info results" );
+        my ( $w, $h ) = Image::Info::dim($info);
+        test( 12, $info->{width} == 50, "Width is 50" );
+        test( 13, $info->{height} == 66, "Height is 66" );
+    }
+    unlink $filename if -e $filename;
 }
 
-test( 25, -e $filename, "Temporary image saved" );
+{
+    # Test Image #3
+    #
+    #            max_width  => 50,
+    #
+    my $fh = $valid->{image3};
 
-if ($image_info_not_available) {
-    test( $_, 1, "# skip Image::Info required for these test" ) for 26 .. 28;
+    test( 14, ref $fh eq 'Fh', "valid Fh object" );
+
+    my $filename = $fh->asString;
+    $filename =~ s/^.*[\/\\]//; # strip off any path information that IE puts in the filename
+    $filename = File::Spec->catdir( 't', 'sh_' . $filename );
+    unlink $filename if -e $filename;
+    if ($fh) {
+        open( my $newfh, '>', $filename )
+            || die "Can't open temp image filename $filename";
+        my $buffer;
+        while ( sysread $fh, $buffer, 4096 ) {
+            print $newfh $buffer;
+        }
+        close $newfh;
+    }
+
+    test( 15, -e $filename, "Temporary image saved" );
+
+    if ($image_info_not_available) {
+        test( $_, 1, "# skip Image::Info required for these test" ) for 16 .. 18;
+    }
+    else {
+        my $info = Image::Info::image_info($filename);
+        test( 16, !$info->{error}, "Image::Info results" );
+        my ( $w, $h ) = Image::Info::dim($info);
+        test( 17, $info->{width} == 50, "Width is 50" );
+        test( 18, $info->{height} == 66, "Height is 66" );
+    }
+    unlink $filename if -e $filename;
 }
-else {
-    my $info = Image::Info::image_info($filename);
-    test( 26, !$info->{error}, "Image::Info results" );
-    my ( $w, $h ) = Image::Info::dim($info);
-    test( 27, $info->{width} == 75, "Width is 50" );
-    test( 28, $info->{height} == 100, "Height is 66" );
+
+{
+    # Test Image #4
+    #
+    #            max_height  => 50,
+    #
+    my $fh = $valid->{image4};
+
+    test( 19, ref $fh eq 'Fh', "valid Fh object" );
+
+    my $filename = $fh->asString;
+    $filename =~ s/^.*[\/\\]//; # strip off any path information that IE puts in the filename
+    $filename = File::Spec->catdir( 't', 'sh_' . $filename );
+    unlink $filename if -e $filename;
+    if ($fh) {
+        open( my $newfh, '>', $filename )
+            || die "Can't open temp image filename $filename";
+        my $buffer;
+        while ( sysread $fh, $buffer, 4096 ) {
+            print $newfh $buffer;
+        }
+        close $newfh;
+    }
+
+    test( 20, -e $filename, "Temporary image saved" );
+
+    if ($image_info_not_available) {
+        test( $_, 1, "# skip Image::Info required for these test" ) for 21 .. 23;
+    }
+    else {
+        my $info = Image::Info::image_info($filename);
+        test( 21, !$info->{error}, "Image::Info results" );
+        my ( $w, $h ) = Image::Info::dim($info);
+        test( 22, $info->{width} == 37, "Width is 37" );
+        test( 23, $info->{height} == 50, "Height is 50" );
+    }
+    unlink $filename if -e $filename;
 }
 
-# Test Image #6
-#
-# Run the image_filter over an invalid (empty) image file
-#
-$fh = $valid->{image6};
-test( 29, ref $fh eq 'Fh', "valid Fh object" );
+{
+    # Test Image #5
+    #
+    #
+    my $fh = $valid->{image5};
 
-# Test File
-#
-# Run the image_filter of a text file
-#
-$fh = $valid->{file};
+    test( 24, ref $fh eq 'Fh', "valid Fh object" );
 
-test( 30, ref $fh eq 'Fh', "valid Fh object" );
+    my $filename = $fh->asString;
+    $filename =~ s/^.*[\/\\]//; # strip off any path information that IE puts in the filename
+    $filename = File::Spec->catdir( 't', 'sh_' . $filename );
+    unlink $filename if -e $filename;
+    if ($fh) {
+        open( my $newfh, '>', $filename )
+            || die "Can't open temp image filename $filename";
+        my $buffer;
+        while ( sysread $fh, $buffer, 4096 ) {
+            print $newfh $buffer;
+        }
+        close $newfh;
+    }
 
-my @lines = <$fh>;
-chomp $lines[0];
-test(
-    31,
-    $lines[0] eq 'This is a dummy file',
-    "Text file wasn't clobbered"
-);
+    test( 25, -e $filename, "Temporary image saved" );
 
-# Test 'name' field
-#
-# We ran the image_filter over a value that was just a plain string
-test( 32, $valid->{name} eq 'name1', "Data::FormValidator check" );
+    if ($image_info_not_available) {
+        test( $_, 1, "# skip Image::Info required for these test" ) for 26 .. 28;
+    }
+    else {
+        my $info = Image::Info::image_info($filename);
+        test( 26, !$info->{error}, "Image::Info results" );
+        my ( $w, $h ) = Image::Info::dim($info);
+        test( 27, $info->{width} == 75, "Width is 50" );
+        test( 28, $info->{height} == 100, "Height is 66" );
+    }
+    unlink $filename if -e $filename;
+}
 
+{
+    # Test Image #6
+    #
+    # Run the image_filter over an invalid (empty) image file
+    #
+    my $fh = $valid->{image6};
+    test( 29, ref $fh eq 'Fh', "valid Fh object" );
+}
+
+{
+    # Test Image #7
+    #
+    #            max_width  => 50,
+    #            max_height => 50,
+    #  with a Microsoft IE style path
+    #
+    my $fh = $valid->{image7};
+
+    test( 30, ref $fh eq 'Fh', "valid Fh object" );
+
+    my $filename = $fh->asString;
+    $filename =~ s/^.*[\/\\]//; # strip off any path information that IE puts in the filename
+    $filename = File::Spec->catdir( 't', 'sh_' . $filename );
+    unlink $filename if -e $filename;
+    if ($fh) {
+        open( my $newfh, '>', $filename )
+            || die "Can't open temp image filename $filename";
+        my $buffer;
+        while ( sysread $fh, $buffer, 4096 ) {
+            print $newfh $buffer;
+        }
+        close $newfh;
+    }
+
+    test( 31, -e $filename, "Temporary image saved" );
+
+    if ($image_info_not_available) {
+        test( $_, 1, "# skip Image::Info required for these test" ) for 32 .. 35;
+    }
+    else {
+        my $info = Image::Info::image_info($filename);
+        test( 32, !$info->{error}, "Image::Info results" );
+        my ( $w, $h ) = Image::Info::dim($info);
+        test( 33, $info->{width} == 37, "Width is 37" );
+        test( 34, $info->{height} == 50, "Height is 50" );
+    }
+    unlink $filename if -e $filename;
+}
+
+{
+    # Test File
+    #
+    # Run the image_filter of a text file
+    #
+    my $fh = $valid->{file};
+
+    test( 35, ref $fh eq 'Fh', "valid Fh object" );
+
+    my @lines = <$fh>;
+    chomp $lines[0];
+    test(
+        36,
+        $lines[0] eq 'This is a dummy file',
+        "Text file wasn't clobbered"
+    );
+}
+
+{
+    # Test 'name' field
+    #
+    # We ran the image_filter over a value that was just a plain string
+    test( 37, $valid->{name} eq 'name1', "Data::FormValidator check" );
+}
