@@ -6,7 +6,8 @@ MANIFEST
 META.yml
 README
 t/01_basic.t
-t/99_pod.t
+t/pod.t
+t/pod_coverage.t
 t/empty.jpg
 t/file.txt
 t/image.jpg
