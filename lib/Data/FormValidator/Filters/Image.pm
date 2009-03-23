@@ -4,6 +4,7 @@ use strict;
 
 use File::Basename;
 use Image::Magick;
+use IO::File;
 use MIME::Types;
 
 =pod
@@ -45,7 +46,7 @@ use vars qw( $VERSION @ISA @EXPORT @EXPORT_OK );
 BEGIN {
     require Exporter;
 
-    $VERSION = '0.30';
+    $VERSION = '0.40';
 
     @ISA = qw( Exporter );
 
@@ -91,6 +92,12 @@ sub __shrink_image {
     my $max_height = shift;
     my @the_rest   = @_;
 
+    # if we weren't given *any* options, there's no point filtering; we're not
+    # going to resize the image.
+    if ((!defined $max_width) && (!defined $max_height) && !@the_rest) {
+        return $fh;
+    }
+
     return $fh unless $fh && ref $fh eq 'Fh';
     my $filename = $fh->asString;
     $filename =~ s/^.*[\/\\]//; # strip off any path information that IE puts in the filename
@@ -98,8 +105,11 @@ sub __shrink_image {
 
     my ($result, $image);
     eval {
+        # turn the Fh from CGI.pm back into a regular Perl filehandle, then
+        # let ImageMagick read the image from _that_ fh.
+        my $fh_copy = IO::File->new_from_fd(fileno($fh), 'r');
         $image = Image::Magick->new;
-        $result = $image->Read( file => \*$fh );
+        $result = $image->Read( file => $fh_copy );
     };
     if ($@) {
         #warn "Uploaded file was not an image:  $@";
@@ -127,6 +137,12 @@ sub __shrink_image {
     if ( $max_height && $nh > $max_height ) {
         $nh = $max_height;
         $nw = $ow * ( $max_height / $oh );
+    }
+
+    if (($oh <= $max_height) && ($ow <= $max_width)) {
+        #warn "Image does not need to be resized";
+        seek( $fh, 0, 0 );
+        return $fh;
     }
 
     $result = $image->Resize( width => $nw, height => $nh, @the_rest );
